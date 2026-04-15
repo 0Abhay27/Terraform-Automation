@@ -1,5 +1,6 @@
 pipeline {
     agent any
+
     parameters {
         choice(
             name: 'ACTION',
@@ -12,7 +13,9 @@ pipeline {
             description: 'Enter the branch name to checkout'
         )
     }
+
     stages {
+
         stage('Checkout') {
             steps {
                 checkout scmGit(
@@ -23,9 +26,16 @@ pipeline {
             }
         }
 
-        stage("terraform init") {
+        // ✅ IMPORTANT FIX
+        stage('Clean Workspace') {
             steps {
-                sh("terraform init -reconfigure")
+                sh 'rm -rf .terraform .terraform.lock.hcl'
+            }
+        }
+
+        stage("Terraform Init") {
+            steps {
+                sh "terraform init -reconfigure"
             }
         }
 
@@ -33,14 +43,21 @@ pipeline {
             steps {
                 script {
                     switch (params.ACTION) {
+
                         case 'plan':
                             echo 'Executing Plan...'
-                            sh "terraform plan"
+                            timeout(time: 10, unit: 'MINUTES') {
+                                sh "terraform plan"
+                            }
                             break
+
                         case 'apply':
                             echo 'Executing Apply...'
-                            sh "terraform apply --auto-approve"
+                            timeout(time: 15, unit: 'MINUTES') {
+                                sh "terraform apply --auto-approve"
+                            }
                             break
+
                         default:
                             error 'Unknown action'
                     }
